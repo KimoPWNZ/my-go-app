@@ -1,0 +1,52 @@
+name: CI/CD Pipeline  
+
+on:  
+  push:  
+    branches:  
+      - main  
+  pull_request:  
+    branches:  
+      - main  
+
+jobs:  
+  build:  
+    runs-on: ${{ matrix.os }}  
+    strategy:  
+      matrix:  
+        os: [ubuntu-latest, windows-latest, macos-latest]  
+
+    steps:  
+      - name: Checkout repository  
+        uses: actions/checkout@v2  
+        
+      - name: Set up Go  
+        uses: actions/setup-go@v2  
+        with:  
+          go-version: '1.18'  
+
+      - name: Install dependencies  
+        run: go mod tidy  
+
+      - name: Build  
+        run: go build .  
+
+      - name: Run Tests  
+        run: go test ./...  
+
+  deploy:  
+    needs: build  
+    runs-on: ubuntu-latest  
+    if: github.ref == 'refs/heads/main' && success()  
+
+    steps:  
+      - name: Checkout repository  
+        uses: actions/checkout@v2  
+
+      - name: Deploy to Remote Server  
+        env:  
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  
+          HOST: ${{ secrets.REMOTE_HOST }}  
+        run: |  
+          echo "$SSH_PRIVATE_KEY" > key.pem  
+          chmod 600 key.pem  
+          ssh -i key.pem user@$HOST "cd /path/to/app && git pull && go build && nohup ./app &"
